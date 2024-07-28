@@ -48,7 +48,7 @@ Run the `train_only.sh` script to train both HuBERT and LLM models and start Ten
 If you encounter a permission denied error when running the scripts, make sure they are executable by running:
 
 ```
-chmod +x process_dataset.sh train_hubert.sh train_llm.sh
+chmod +x process_dataset.sh train_hubert_rep.sh train_llm_rep train_only.sh
 ```
 
 #### To Change Variables

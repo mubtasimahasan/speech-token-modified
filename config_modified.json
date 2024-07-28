@@ -39,10 +39,10 @@
     "num_workers": 4,
     "showpiece_num": 8,
     
-    "project_name": "speechtokenizer-debug",
+    "project_name": "speechtokenizer-allmighty",
     "epochs": 10, 
-    "num_warmup_steps": 3,
-    "save_model_steps": 36,
+    "num_warmup_steps": 100,
+    "save_model_steps": 11880,
     "num_ckpt_keep": 3,
     "batch_size": 6, 
     "learning_rate": 1e-4, 
