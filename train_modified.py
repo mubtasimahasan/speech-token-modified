@@ -106,6 +106,7 @@ class SpeechTokenizerTrainer(nn.Module):
         dataloader_config = DataLoaderConfiguration(split_batches=split_batches) 
         
         wandb.login(key="271c72fd8478567c2aba85152c0aef83eeba24cc")
+        wandb.init(project=project_name, dir="saved_files/")
         
         self.accelerator = Accelerator(
             dataloader_config=dataloader_config,
