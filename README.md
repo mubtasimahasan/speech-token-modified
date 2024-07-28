@@ -32,6 +32,26 @@ Run the `train_llm_rep.sh` script to extract representations using a Large Langu
 ./train_llm_rep.sh
 ```
 
+### 4. Train Only
+
+Run the `train_only.sh` script to train both HuBERT and LLM models and start TensorBoard. 
+
+```bash
+# Note: Use this script when you have previously executed all three './process_dataset.sh', './train_llm_rep.sh', and './train_llm_rep.sh' scripts, and want to continue training or retrain now.
+
+./train_only.sh
+```
+
+---
+
+#### If Permission Denied
+If you encounter a permission denied error when running the scripts, make sure they are executable by running:
+
+```
+chmod +x process_dataset.sh train_hubert.sh train_llm.sh
+```
+
+#### To Change Variables
 Each script contains variables at the top that you can modify as needed:
 
 - **`process_dataset.sh` Variables:**
@@ -40,7 +60,7 @@ Each script contains variables at the top that you can modify as needed:
   - `RATIO`: Ratio of the dataset to process.
   - `SEGMENT_LENGTH`: Length of each audio segment in seconds.
 
-- **`train_hubert.sh` Variables:**
+- **`train_hubert.sh` and  `train_hubert.sh` Variables:**
   - `CONFIG`: Path to the configuration file.
   - `AUDIO_DIR`: Directory containing processed audio files.
   - `REP_DIR`: Directory to save HuBERT representations.
@@ -49,11 +69,7 @@ Each script contains variables at the top that you can modify as needed:
   - `VALID_SET_SIZE`: Proportion of the dataset for validation.
   - `TENSORBOARD_LOGDIR`: Directory to save TensorBoard logs.
 
-- **`train_llm.sh` Variables:**
-  - `CONFIG`: Path to the configuration file.
-  - `AUDIO_DIR`: Directory containing processed audio files.
-  - `REP_DIR`: Directory to save LLM representations.
-  - `EXTS`: Audio file extensions to process.
-  - `SPLIT_SEED`: Random seed for dataset splitting.
-  - `VALID_SET_SIZE`: Proportion of the dataset for validation.
-  - `TENSORBOARD_LOGDIR`: Directory to save TensorBoard logs.
+- **`train_only.sh` Variables:**
+  - `HUBERT_TEACHER`: Teacher model name for HuBERT
+  - `LLM_TEACHER`: Teacher model name for LLM
+  - `TENSORBOARD_LOGDIR`: TensorBoard log directory

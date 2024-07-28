@@ -1,0 +1,11 @@
+hubert_rep/
+llm_rep/
+processed_dataset/
+saved_files/
+wandb/
+__pycache__/
+hubert_train_file_list.txt
+hubert_dev_file_list.txt
+llm_train_file_list.txt
+llm_dev_file_list.txt
+

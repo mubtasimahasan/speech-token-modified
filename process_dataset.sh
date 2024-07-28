@@ -3,7 +3,9 @@
 # Variables
 DATASET="zachary24/librispeech_train_clean_100"
 SPLIT="train"
-RATIO=0.00616
+# RATIO=0.620
+# for debuging reduce dataset size 
+RATIO=0.00616 
 SEGMENT_LENGTH=3.0
 
 # Script to process the dataset

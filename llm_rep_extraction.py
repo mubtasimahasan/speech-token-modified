@@ -43,9 +43,8 @@ if __name__ == '__main__':
         valid_set_size = int(len(file_list) * args.valid_set_size)
     else:
         valid_set_size = int(args.valid_set_size)
-    train_file_list = cfg.get('train_files')
-    valid_file_list = cfg.get('valid_files')
-    # remove list if already created before
+    train_file_list = f"llm_{cfg.get('train_files')}"
+    valid_file_list = f"llm_{cfg.get('valid_files')}"
     segment_size = cfg.get('segment_size')
     random.seed(args.split_seed)
     random.shuffle(file_list)

@@ -48,12 +48,12 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     # Load the dataset
-    # dataset = load_dataset(args.dataset, split=args.split)
-    # dataset = dataset.select(range(int(len(dataset) * args.ratio)))
+    dataset = load_dataset(args.dataset, split=args.split)
+    dataset = dataset.select(range(int(len(dataset) * args.ratio)))
     # dataset = load_dataset("zachary24/librispeech_train_clean_100", split="train")
-    dataset = load_dataset("PolyAI/minds14", "en-US", split="train")
-    dataset = dataset.select(range(int(len(dataset) * 0.235)))
-    # print(dataset)
+    # dataset = load_dataset("PolyAI/minds14", "en-US", split="train")
+    # dataset = dataset.select(range(int(len(dataset) * 0.235)))
+    print(dataset)
 
     # Directory to save the processed audio files
     output_dir = "processed_dataset"

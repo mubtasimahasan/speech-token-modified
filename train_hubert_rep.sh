@@ -6,9 +6,12 @@ AUDIO_DIR="processed_dataset"
 REP_DIR="hubert_rep"
 EXTS="flac,wav"
 SPLIT_SEED=42
+# VALID_SET_SIZE=0.00467
+# for debuging reduce dataset size 
 VALID_SET_SIZE=0.243
+# dont change these values below: 
 TEACHER="hubert"
-TENSORBOARD_LOGDIR="saved_files/hubert/logs/"
+TENSORBOARD_LOGDIR="saved_files/logs/"
 
 # Script to run HuBERT-related tasks
 echo "Running HuBERT representation extraction with the following parameters:"

@@ -84,6 +84,7 @@ class SpeechTokenizerTrainer(nn.Module):
         self.stdout_steps = cfg.get('stdout_steps')
         self.save_model_steps = cfg.get('save_model_steps')
         results_folder =  f'saved_files/{args.teacher}'
+        logs_folder = 'saved_files/logs'
         #results_folder = cfg.get('results_folder')
         self.results_folder = Path(results_folder)
         self.num_ckpt_keep = cfg.get("num_ckpt_keep")
@@ -114,7 +115,7 @@ class SpeechTokenizerTrainer(nn.Module):
         )
         
         if self.is_main:
-            self.writer = tensorboard.SummaryWriter(os.path.join(results_folder, 'logs'))
+            self.writer = tensorboard.SummaryWriter(logs_folder)
 
         self.generator = generator
         self.discriminators = discriminators
@@ -148,12 +149,12 @@ class SpeechTokenizerTrainer(nn.Module):
 
         # self.max_grad_norm = max_grad_norm
         segment_size = cfg.get("segment_size")
-        train_files = cfg.get("train_files")
+        train_files = f"{args.teacher}_{cfg.get('train_files')}"  
         batch_size = cfg.get("batch_size")
         self.batch_size = batch_size
         with open(train_files, 'r') as f:
             train_file_list = f.readlines()
-        valid_files = cfg.get("valid_files")
+        valid_files = f"{args.teacher}_{cfg.get('valid_files')}"
         with open(valid_files, 'r') as f:
             valid_file_list = f.readlines()
         
@@ -226,7 +227,7 @@ class SpeechTokenizerTrainer(nn.Module):
         )
         self.discriminators = {k:self.accelerator.prepare(v) for k, v in self.discriminators.items()}
         
-        hps = {"num_train_steps": num_train_steps, "num_warmup_steps": self.num_warmup_steps, "learning_rate": self.lr, "initial_learning_rate": self.initial_lr, "epochs": self.epochs}
+        hps = {"semantic teacher": args.teacher, "num_train_steps": num_train_steps, "num_warmup_steps": self.num_warmup_steps, "learning_rate": self.lr, "initial_learning_rate": self.initial_lr, "epochs": self.epochs}
         self.accelerator.init_trackers(project_name, config=hps)
         self.best_dev_mel_loss = float('inf')
 
@@ -401,13 +402,13 @@ class SpeechTokenizerTrainer(nn.Module):
                             total_distill_loss += loss_distill                            
                             num += x.size(0)
                             if i < self.showpiece_num:
-                                self.log({f'groundtruth/x_{i}': x[0].cpu().detach()}, type='audio', sample_rate=self.sample_rate, step=steps)
+                                self.log({f'{args.teacher}/groundtruth/x_{i}': x[0].cpu().detach()}, type='audio', sample_rate=self.sample_rate, step=steps)
                                 x_spec = mel_spectrogram(x.squeeze(1), **self.mel_kwargs)
-                                self.log({f'groundtruth/x_spec_{i}': plot_spectrogram(x_spec[0].cpu().numpy())}, type='figure', step=steps)
+                                self.log({f'{args.teacher}/groundtruth/x_spec_{i}': plot_spectrogram(x_spec[0].cpu().numpy())}, type='figure', step=steps)
                                 
-                                self.log({f'generate/x_hat_{i}': x_hat[0].cpu().detach()}, type='audio', sample_rate=self.sample_rate, step=steps)
+                                self.log({f'{args.teacher}/generate/x_hat_{i}': x_hat[0].cpu().detach()}, type='audio', sample_rate=self.sample_rate, step=steps)
                                 x_hat_spec = mel_spectrogram(x_hat.squeeze(1), **self.mel_kwargs)
-                                self.log({f'generate/x_hat_spec_{i}': plot_spectrogram(x_hat_spec[0].cpu().numpy())}, type='figure', step=steps)
+                                self.log({f'{args.teacher}/generate/x_hat_spec_{i}': plot_spectrogram(x_hat_spec[0].cpu().numpy())}, type='figure', step=steps)
                         self.print(f'{steps}: dev mel error: {total_mel_error / num:0.3f}\tdev distill loss: {total_distill_loss / num:0.3f}')
                         self.accelerator.log({'dev/mel error': total_mel_error / num, 'dev/distillation loss': total_distill_loss / num}, step=steps)
                             
