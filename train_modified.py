@@ -82,7 +82,6 @@ class SpeechTokenizerTrainer(nn.Module):
         split_batches = cfg.get("split_batches", False)
         self.log_steps = cfg.get('log_steps')
         self.stdout_steps = cfg.get('stdout_steps')
-        self.save_model_steps = cfg.get('save_model_steps')
         results_folder =  f'saved_files/{args.teacher}'
         logs_folder = 'saved_files/logs'
         #results_folder = cfg.get('results_folder')
@@ -101,17 +100,22 @@ class SpeechTokenizerTrainer(nn.Module):
         with open(f'{str(self.results_folder)}/config.json', 'w+') as f:
             json.dump(cfg, f, ensure_ascii=False, indent=4)
             
-    
         # tracker = AudioTensorBoardTracker(run_name=project_name, logging_dir=results_folder)
         dataloader_config = DataLoaderConfiguration(split_batches=split_batches) 
         
-        wandb.login(key="271c72fd8478567c2aba85152c0aef83eeba24cc")
-        wandb.init(project=project_name, dir="saved_files/")
-        
+        # Log using wandb
+        self.log_with_wandb = None
+        wandb_api_key = os.environ.get('WANDB_API_KEY')
+        # Check if the API key is set
+        if wandb_api_key is not None:
+            wandb.login(key=wandb_api_key)
+            wandb.init(project=project_name, dir="saved_files/")
+            self.log_with_wandb = "wandb"
+            
         self.accelerator = Accelerator(
             dataloader_config=dataloader_config,
             kwargs_handlers=[ddp_kwargs],
-            log_with="wandb",
+            log_with=self.log_with_wandb,
             **accelerate_kwargs
         )
         
@@ -204,6 +208,8 @@ class SpeechTokenizerTrainer(nn.Module):
         # scheduler
         # num_train_steps = epochs * self.ds.__len__() // (batch_size * grad_accum_every)
         num_train_steps = self.epochs * self.ds.__len__() // batch_size
+        self.save_model_steps = num_train_steps // 10
+        
         self.scheduler_g = CosineAnnealingLR(self.optim_g, T_max = num_train_steps)
         self.scheduler_d = CosineAnnealingLR(self.optim_d, T_max = num_train_steps)
         
@@ -369,7 +375,7 @@ class SpeechTokenizerTrainer(nn.Module):
                         mel_error = mel_loss(x, x_hat, **self.mel_loss_kwargs_list[0]).item()
                     self.print(f"Epoch {epoch} -- Step {steps}: Gen Loss: {loss_generator_all.item():0.3f}; Mel Error:{mel_error:0.3f}; Q Loss: {loss_q.item():0.3f}; Distill Loss: {loss_distill.item():0.3f}; Time cost per step: {step_time_log['time_cost'] / self.stdout_steps:0.3f}s")
                     step_time_log = {}
-                if self.is_main and not (steps % self.log_steps):
+                if self.is_main and not (steps % self.log_steps) and self.log_with_wandb is not None:
                     self.accelerator.log({"train/discriminators loss": loss_disc_all.item(), 
                                           "train/generator loss": loss_generator_all.item(), 
                                           "train/reconstruction loss": loss_recon.item(),
@@ -380,6 +386,19 @@ class SpeechTokenizerTrainer(nn.Module):
                                           "train/mel error": mel_error, 
                                           "train/distillation loss": loss_distill.item(), 
                                           "train/learning_rate": lr}, step=steps)
+                
+                elif self.is_main and not (steps % self.log_steps) and self.log_with_wandb is None: 
+                    self.log({"train/discriminators loss": loss_disc_all.item(), 
+                              "train/generator loss": loss_generator_all.item(),
+                              "train/reconstruction loss": loss_recon.item(), 
+                              "train/feature loss": loss_feature.item(),
+                              "train/adversarial loss": loss_adversarial.item(), 
+                              "train/quantizer loss": loss_q.item(), 
+                              "train/mel loss": loss_mel.item(),
+                              "train/mel error": mel_error, 
+                              "train/distillation loss": loss_distill.item(), 
+                              "train/learning_rate": lr}, step=steps)
+                    
                 
                 self.accelerator.wait_for_everyone()
                 
@@ -403,17 +422,30 @@ class SpeechTokenizerTrainer(nn.Module):
                             total_distill_loss += loss_distill                            
                             num += x.size(0)
                             if i < self.showpiece_num:
-                                self.log({f'{args.teacher}/groundtruth/x_{i}': x[0].cpu().detach()}, type='audio', sample_rate=self.sample_rate, step=steps)
                                 x_spec = mel_spectrogram(x.squeeze(1), **self.mel_kwargs)
-                                self.log({f'{args.teacher}/groundtruth/x_spec_{i}': plot_spectrogram(x_spec[0].cpu().numpy())}, type='figure', step=steps)
-                                
-                                self.log({f'{args.teacher}/generate/x_hat_{i}': x_hat[0].cpu().detach()}, type='audio', sample_rate=self.sample_rate, step=steps)
                                 x_hat_spec = mel_spectrogram(x_hat.squeeze(1), **self.mel_kwargs)
-                                self.log({f'{args.teacher}/generate/x_hat_spec_{i}': plot_spectrogram(x_hat_spec[0].cpu().numpy())}, type='figure', step=steps)
-                        self.print(f'{steps}: dev mel error: {total_mel_error / num:0.3f}\tdev distill loss: {total_distill_loss / num:0.3f}')
-                        self.accelerator.log({'dev/mel error': total_mel_error / num, 'dev/distillation loss': total_distill_loss / num}, step=steps)
-                            
+                                
+                                if self.log_with_wandb is not None:
+                                    self.accelerator.log({
+                                        f"{args.teacher}/groundtruth/x_{i}": wandb.Audio(x.cpu().detach().numpy().squeeze(), sample_rate=self.sample_rate),
+                                        f"{args.teacher}/groundtruth/x_spec_{i}": wandb.Image(plot_spectrogram(x_spec[0].cpu().numpy())),
+                                        f"{args.teacher}/generate/x_hat_{i}": wandb.Audio(x_hat.cpu().detach().numpy().squeeze(), sample_rate=self.sample_rate),
+                                        f"{args.teacher}/generate/x_hat_spec_{i}": wandb.Image(plot_spectrogram(x_hat_spec[0].cpu().numpy()))
+                                    }, step=steps)
+                                
+                                else:
+                                    self.log({f'{args.teacher}/groundtruth/x_{i}': x[0].cpu().detach()}, type='audio', sample_rate=self.sample_rate, step=steps)
+                                    self.log({f'{args.teacher}/groundtruth/x_spec_{i}': plot_spectrogram(x_spec[0].cpu().numpy())}, type='figure', step=steps)
+                                    self.log({f'{args.teacher}/generate/x_hat_{i}': x_hat[0].cpu().detach()}, type='audio', sample_rate=self.sample_rate, step=steps)
+                                    self.log({f'{args.teacher}/generate/x_hat_spec_{i}': plot_spectrogram(x_hat_spec[0].cpu().numpy())}, type='figure', step=steps)
+                                    
+                        if self.log_with_wandb is not None:
+                            self.accelerator.log({'dev/mel error': total_mel_error / num, 'dev/distillation loss': total_distill_loss / num}, step=steps)
+                        else:
+                            self.log({'dev/mel error': total_mel_error / num, 'dev/distillation loss': total_distill_loss / num}, step=steps)
                     
+                        self.print(f'{steps}: dev mel error: {total_mel_error / num:0.3f}\tdev distill loss: {total_distill_loss / num:0.3f}')
+                        
                     # save model
                     model_path = str(self.results_folder / f'SpeechTokenizerTrainer_{steps:08d}')
                     self.save(model_path, total_mel_error / num)                        
@@ -445,10 +477,15 @@ if __name__ == '__main__':
     parser.add_argument('--config', '-c', type=str, help='Config file path')
     parser.add_argument('--continue_train', action='store_true', help='Continue to train from checkpoints')
     parser.add_argument('--teacher', type=str, help='Semantic distillation teacher model')
-#     args = parser.parse_args()
+    parser.add_argument('--epochs', type=int, help='Override number of epochs from config')
+    #args = parser.parse_args()
     args, unknown = parser.parse_known_args()
+
     with open(args.config) as f:
         cfg = json.load(f)
+
+    if args.epochs is not None:
+        cfg['epochs'] = args.epochs
 
     generator = SpeechTokenizer(cfg)
     discriminators = {'mpd':MultiPeriodDiscriminator(), 'msd':MultiScaleDiscriminator(), 'mstftd':MultiScaleSTFTDiscriminator(32)}
